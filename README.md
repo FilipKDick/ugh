@@ -5,22 +5,10 @@
 > **Quick install**
 >
 > ```bash
-> # macOS (Intel)
-> curl -L https://github.com/<org>/ugh/releases/download/vX.Y.Z/ugh-x86_64-apple-darwin.tar.gz \
->   | tar -xz && sudo mv ugh-x86_64-apple-darwin /usr/local/bin/ugh
->
-> # macOS (Apple Silicon)
-> curl -L https://github.com/<org>/ugh/releases/download/vX.Y.Z/ugh-aarch64-apple-darwin.tar.gz \
->   | tar -xz && sudo mv ugh-aarch64-apple-darwin /usr/local/bin/ugh
->
-> # Linux (x86_64)
-> curl -L https://github.com/<org>/ugh/releases/download/vX.Y.Z/ugh-x86_64-unknown-linux-gnu.tar.gz \
->   | tar -xz && sudo mv ugh-x86_64-unknown-linux-gnu /usr/local/bin/ugh
->
-> ugh config init
+> curl -fsSL https://raw.githubusercontent.com/FilipKDick/ugh/main/install.sh | bash
 > ```
 >
-> Replace `vX.Y.Z` with the desired release tag. If `/usr/local/bin` is locked down, move the binary into a directory on your `PATH` (e.g., `$HOME/.local/bin`) and make it executable: `chmod +x ugh-…`.
+> The installer auto-detects macOS (Intel/Apple Silicon) or Linux (x86_64), downloads the latest release artifact, and copies `ugh` into `/usr/local/bin` (falling back to `~/.local/bin` if necessary). To pin a version set `UGH_INSTALL_VERSION=v0.1.2`; to install from a fork set `UGH_INSTALL_REPO=yourorg/ugh` before running the command.
 
 ## Highlights
 - **Git-aware ticket workflow** – summarizes uncommitted changes, calls Gemini 2.5 for a title/description, and spins up branches in the `type/JIRA-123/slug` format.
