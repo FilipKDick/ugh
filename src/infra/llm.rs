@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -18,6 +20,7 @@ Rules:
 - branch_summary must be a short, lower-case slug (hyphen-separated words <= 6 words).
 - description should be concise Markdown (bullets or short paragraphs) that references the planned work.
 - Keep title under 80 characters and actionable.
+- Ignore test changes if non-test changes exist.
 - Never invent work unrelated to the provided changes.
 "#;
 
@@ -29,8 +32,12 @@ pub struct GeminiClient {
 
 impl GeminiClient {
     pub fn new(api_key: Option<String>, model: String) -> Self {
+        let http = Client::builder()
+            .timeout(Duration::from_secs(20))
+            .build()
+            .expect("failed to build HTTP client");
         Self {
-            http: Client::new(),
+            http,
             api_key,
             model,
         }
@@ -59,13 +66,13 @@ impl LanguageModelService for GeminiClient {
             self.model, api_key
         );
 
-        let response = self
-            .http
-            .post(&url)
-            .json(&request)
-            .send()
-            .await
-            .map_err(|err| AppError::LanguageModel(format!("failed to call Gemini: {err}")))?;
+        let response = match self.http.post(&url).json(&request).send().await {
+            Ok(resp) => resp,
+            Err(err) => {
+                eprintln!("Warning: Gemini request failed ({err}); using heuristic ticket.");
+                return Ok(heuristic_ticket(changes));
+            }
+        };
 
         let status = response.status();
         if !status.is_success() {
@@ -73,14 +80,21 @@ impl LanguageModelService for GeminiClient {
                 .text()
                 .await
                 .unwrap_or_else(|_| "<no body>".to_string());
-            return Err(AppError::LanguageModel(format!(
-                "Gemini request failed with status {status}: {body}"
-            )));
+            eprintln!(
+                "Warning: Gemini request returned {status}; falling back to heuristic ticket. Body: {body}"
+            );
+            return Ok(heuristic_ticket(changes));
         }
 
-        let payload: GenerateContentResponse = response.json().await.map_err(|err| {
-            AppError::LanguageModel(format!("failed to parse Gemini response: {err}"))
-        })?;
+        let payload: GenerateContentResponse = match response.json().await {
+            Ok(payload) => payload,
+            Err(err) => {
+                eprintln!(
+                    "Warning: failed to parse Gemini response ({err}); using heuristic ticket."
+                );
+                return Ok(heuristic_ticket(changes));
+            }
+        };
 
         let candidate_text = payload
             .candidates
@@ -94,20 +108,28 @@ impl LanguageModelService for GeminiClient {
                 AppError::LanguageModel("Gemini returned an empty response".to_string())
             })?;
 
-        let draft: GeminiDraft = serde_json::from_str(&candidate_text).map_err(|err| {
-            AppError::LanguageModel(format!(
-                "Gemini produced invalid JSON ({err}): {}",
-                candidate_text
-            ))
-        })?;
+        let normalized = normalize_json_blob(&candidate_text);
+        let draft: GeminiDraft = match serde_json::from_str(&normalized) {
+            Ok(draft) => draft,
+            Err(err) => {
+                eprintln!(
+                    "Warning: Gemini produced invalid JSON ({err}); using heuristic ticket. Payload: {}",
+                    candidate_text
+                );
+                return Ok(heuristic_ticket(changes));
+            }
+        };
 
-        let branch_category =
-            BranchCategory::from_str(&draft.branch_category).ok_or_else(|| {
-                AppError::LanguageModel(format!(
-                    "invalid branch_category from Gemini: {}",
+        let branch_category = match BranchCategory::from_str(&draft.branch_category) {
+            Some(category) => category,
+            None => {
+                eprintln!(
+                    "Warning: Gemini returned invalid branch_category '{}'; using heuristic ticket.",
                     draft.branch_category
-                ))
-            })?;
+                );
+                return Ok(heuristic_ticket(changes));
+            }
+        };
 
         let branch_summary = if draft.branch_summary.trim().is_empty() {
             baseline_summary
@@ -117,16 +139,14 @@ impl LanguageModelService for GeminiClient {
 
         let title = draft.title.trim();
         if title.is_empty() {
-            return Err(AppError::LanguageModel(
-                "Gemini returned an empty title".to_string(),
-            ));
+            eprintln!("Warning: Gemini returned empty title; using heuristic ticket.");
+            return Ok(heuristic_ticket(changes));
         }
 
         let description = draft.description.trim();
         if description.is_empty() {
-            return Err(AppError::LanguageModel(
-                "Gemini returned an empty description".to_string(),
-            ));
+            eprintln!("Warning: Gemini returned empty description; using heuristic ticket.");
+            return Ok(heuristic_ticket(changes));
         }
 
         Ok(TicketDraft {
@@ -157,6 +177,7 @@ fn build_user_prompt(
             "branch_category must be feature, fix, or quality.\n",
             "branch_summary must be a short hyphenated slug (<=6 words).\n",
             "Use concise Markdown in the description.\n",
+            "Ignore pure test-only changes when other files are touched; mention tests as follow-up if needed.\n",
             "Heuristic hint -> category: {}, summary: {}.\n",
             "If information is missing, make conservative assumptions and mention follow-up items."
         ),
@@ -208,6 +229,29 @@ fn heuristic_summary(changes: &ChangeSummary) -> String {
         "pending-update".to_string()
     } else {
         words.join("-")
+    }
+}
+
+fn heuristic_ticket(changes: &ChangeSummary) -> TicketDraft {
+    let branch_category = heuristic_category(changes);
+    let branch_summary = heuristic_summary(changes);
+    let description = if changes.summary.is_empty() {
+        "Summarize the local modifications before creating the ticket.".to_string()
+    } else {
+        format!("Summary of uncommitted work:\n{}", changes.summary)
+    };
+
+    let title = match branch_category {
+        BranchCategory::Feature => format!("Add {}", branch_summary.replace('-', " ")),
+        BranchCategory::Fix => format!("Fix {}", branch_summary.replace('-', " ")),
+        BranchCategory::Quality => format!("Improve {}", branch_summary.replace('-', " ")),
+    };
+
+    TicketDraft {
+        title,
+        description,
+        branch_category,
+        branch_summary,
     }
 }
 
@@ -281,4 +325,26 @@ struct GeminiDraft {
     description: String,
     branch_category: String,
     branch_summary: String,
+}
+
+fn normalize_json_blob(input: &str) -> String {
+    let mut trimmed = input.trim();
+    if trimmed.starts_with("```") {
+        trimmed = trimmed.trim_start_matches("```");
+        trimmed = trimmed.trim_start_matches(|c: char| c.is_whitespace());
+        if trimmed.len() >= 4 && trimmed[..4].eq_ignore_ascii_case("json") {
+            trimmed = &trimmed[4..];
+            trimmed = trimmed.trim_start_matches(|c: char| c.is_whitespace());
+        }
+        trimmed = trimmed.trim_end();
+        if let Some(stripped) = trimmed.strip_suffix("```") {
+            trimmed = stripped.trim_end();
+        }
+    }
+
+    if let (Some(start), Some(end)) = (trimmed.find('{'), trimmed.rfind('}')) {
+        trimmed[start..=end].to_string()
+    } else {
+        trimmed.to_string()
+    }
 }

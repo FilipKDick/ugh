@@ -1,3 +1,4 @@
+use crate::cache::TicketDraftCache;
 use crate::context::AppContext;
 use crate::domain::branch::BranchName;
 use crate::domain::ticket::Ticket;
@@ -17,7 +18,32 @@ pub async fn create_ticket_from_changes(
         .ok_or_else(|| AppError::Configuration("no board configured".to_string()))?;
 
     let changes = ctx.version_control.summarize_changes().await?;
-    let draft = ctx.language_model.draft_ticket(&changes).await?;
+
+    let cache_key =
+        TicketDraftCache::compute_key(&changes.summary, changes.files_changed, Some(&board));
+    let mut cache = match TicketDraftCache::load() {
+        Ok(cache) => Some(cache),
+        Err(err) => {
+            eprintln!(
+                "Warning: could not load ticket draft cache ({err}). Continuing without cache."
+            );
+            None
+        }
+    };
+
+    let draft = match cache.as_mut().and_then(|c| c.get(&cache_key)) {
+        Some(cached) => cached,
+        None => {
+            let generated = ctx.language_model.draft_ticket(&changes).await?;
+            if let Some(cache_ref) = cache.as_mut() {
+                cache_ref.insert(cache_key.clone(), &generated);
+                if let Err(err) = cache_ref.save() {
+                    eprintln!("Warning: failed to persist ticket draft cache ({err}).");
+                }
+            }
+            generated
+        }
+    };
 
     if draft.description.trim().is_empty() {
         return Err(AppError::LanguageModel(

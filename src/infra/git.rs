@@ -73,15 +73,19 @@ impl GitCli {
 impl VersionControlService for GitCli {
     async fn summarize_changes(&self) -> AppResult<ChangeSummary> {
         let status_output = self.run_git_checked(&["status", "--short"]).await?;
-        let diff_stat = self
-            .run_git_checked(&["diff", "--stat"])
-            .await
-            .unwrap_or_default();
 
         let files_changed = status_output
             .lines()
             .filter(|line| !line.trim().is_empty())
             .count();
+
+        let diff_stat = if files_changed == 0 {
+            String::new()
+        } else {
+            self.run_git_checked(&["diff", "--stat=200"])
+                .await
+                .unwrap_or_default()
+        };
 
         let branch = self
             .current_branch()
@@ -99,12 +103,12 @@ impl VersionControlService for GitCli {
             for entry in status_output
                 .lines()
                 .filter(|line| !line.trim().is_empty())
-                .take(10)
+                .take(8)
             {
                 lines.push(format!("  {entry}"));
             }
 
-            if files_changed > 10 {
+            if files_changed > 8 {
                 lines.push("  …".to_string());
             }
 
@@ -119,7 +123,7 @@ impl VersionControlService for GitCli {
                 lines.extend(
                     diff_stat_lines
                         .into_iter()
-                        .take(10)
+                        .take(8)
                         .map(|line| format!("  {line}")),
                 );
             }

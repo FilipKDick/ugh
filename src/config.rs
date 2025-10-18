@@ -102,7 +102,7 @@ impl AppConfig {
         let gemini_model = env::var("UGH_GEMINI_MODEL")
             .ok()
             .or(stored.gemini_model.clone())
-            .unwrap_or_else(|| "gemini-1.5-flash-latest".to_string());
+            .unwrap_or_else(|| "gemini-2.5-flash".to_string());
         let jira_issue_type = env::var("UGH_JIRA_ISSUE_TYPE")
             .ok()
             .or(stored.jira_issue_type.clone())

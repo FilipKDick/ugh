@@ -25,3 +25,5 @@ Branches created by the workflow must read `type/ticket-key/short-summary`. `typ
 
 ## Agent Notes
 Avoid mutating files under `target/`. If you add dependencies, update `Cargo.toml` and run `cargo check` to refresh `Cargo.lock`. Document any non-obvious design decisions in PR descriptions so future agents can onboard quickly. Keep sensitive secrets (Jira token, Gemini key) in environment variables or the local config file; never commit them to the repository.
+
+Ticket drafts from the LLM are cached in `~/.config/ugh/draft_cache.json` keyed by the diff signature to shorten repeat runs; delete that file if you need to force-refresh model output.
