@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-REPO="${UGH_INSTALL_REPO:-filip/ugh}"
+REPO="${UGH_INSTALL_REPO:-FilipKDick/ugh}"
 VERSION="${UGH_INSTALL_VERSION:-latest}"
 DEFAULT_DEST="/usr/local/bin"
 DEST="${UGH_INSTALL_DIR:-$DEFAULT_DEST}"
