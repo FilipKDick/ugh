@@ -5,7 +5,7 @@
 > **Quick install**
 >
 > ```bash
-> curl -fsSL https://raw.githubusercontent.com/FilipKDick/ugh/main/install.sh | bash
+> curl -fsSL https://raw.githubusercontent.com/FilipKDick/ugh/master/install.sh | bash
 > ```
 >
 > The installer auto-detects macOS (Intel/Apple Silicon) or Linux (x86_64), downloads the latest release artifact, and copies `ugh` into `/usr/local/bin` (falling back to `~/.local/bin` if necessary). To pin a version set `UGH_INSTALL_VERSION=v0.1.2`; to install from a fork set `UGH_INSTALL_REPO=yourorg/ugh` before running the command.
