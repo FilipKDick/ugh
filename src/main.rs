@@ -54,25 +54,49 @@ async fn run() -> AppResult<()> {
     let cwd = std::env::current_dir()?;
     let config = AppConfig::load(&cwd)?;
 
-    if config.jira_base_url.is_none() {
-        eprintln!("Warning: Jira base URL not configured; ticket links may be missing.");
+    let gemini_api_key = config.gemini_api_key.clone();
+    let gemini_model = config.gemini_model.clone();
+    let jira_base_url = config.jira_base_url.clone();
+    let jira_email = config.jira_email.clone();
+    let jira_token = config.jira_token.clone();
+    let jira_issue_type = config.jira_issue_type.clone();
+
+    if jira_base_url.is_none() {
+        eprintln!("Warning: Jira base URL not configured; ticket creation and links will fail.");
     }
-    if config.jira_token.is_none() {
+    if jira_email.is_none() {
+        eprintln!("Warning: Jira email not configured; ticket creation will fail.");
+    }
+    if jira_token.is_none() {
         eprintln!("Warning: Jira token not configured; ticket creation will fail.");
+    }
+    if config.gemini_api_key.is_none() {
+        eprintln!("Warning: Gemini API key not configured; ticket drafting will fail.");
     }
 
     let language_model: Arc<dyn LanguageModelService> = match &config.llm_provider {
-        LlmProvider::Gemini => Arc::new(GeminiClient::new()),
+        LlmProvider::Gemini => Arc::new(GeminiClient::new(
+            gemini_api_key.clone(),
+            gemini_model.clone(),
+        )),
         LlmProvider::Custom(provider) => {
             eprintln!(
                 "Warning: custom LLM provider '{provider}' not yet implemented, using Gemini fallback."
             );
-            Arc::new(GeminiClient::new())
+            Arc::new(GeminiClient::new(
+                gemini_api_key.clone(),
+                gemini_model.clone(),
+            ))
         }
     };
 
     let git = Arc::new(GitCli::new(config.workspace_root.clone()));
-    let issue_tracker = Arc::new(JiraClient::new());
+    let issue_tracker = Arc::new(JiraClient::new(
+        jira_base_url,
+        jira_email,
+        jira_token,
+        jira_issue_type,
+    ));
 
     let context = AppContext::new(config, git, issue_tracker, language_model);
 

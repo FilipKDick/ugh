@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BranchCategory {
     Feature,
     Fix,
@@ -11,6 +11,15 @@ impl BranchCategory {
             BranchCategory::Feature => "feature",
             BranchCategory::Fix => "fix",
             BranchCategory::Quality => "quality",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value.trim().to_lowercase().as_str() {
+            "feature" => Some(BranchCategory::Feature),
+            "fix" => Some(BranchCategory::Fix),
+            "quality" => Some(BranchCategory::Quality),
+            _ => None,
         }
     }
 }
@@ -80,5 +89,15 @@ mod tests {
             name.as_str(),
             "feature/TCK-12/add-git-integration-for-checkout"
         );
+    }
+
+    #[test]
+    fn parses_branch_category() {
+        assert_eq!(
+            BranchCategory::from_str("feature"),
+            Some(BranchCategory::Feature)
+        );
+        assert_eq!(BranchCategory::from_str("FIX"), Some(BranchCategory::Fix));
+        assert_eq!(BranchCategory::from_str("unknown"), None);
     }
 }
