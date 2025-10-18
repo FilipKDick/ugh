@@ -123,9 +123,7 @@ impl IssueTrackerService for JiraClient {
         })?;
 
         let key = payload.key;
-        let url = payload
-            .self_url
-            .unwrap_or_else(|| Self::browse_url(base_url, &key));
+        let url = Self::browse_url(base_url, &key);
 
         Ok(Ticket {
             key,
@@ -247,5 +245,5 @@ impl JiraDocText {
 struct JiraCreateIssueResponse {
     key: String,
     #[serde(rename = "self")]
-    self_url: Option<String>,
+    _self_url: Option<String>,
 }
