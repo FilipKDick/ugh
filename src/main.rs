@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use clap::{Args, Parser, Subcommand};
 
+use crate::cmd::config::{self as config_cmd, ConfigArgs};
 use crate::cmd::ticket::{self, TicketCommandArgs};
 use crate::config::{AppConfig, LlmProvider};
 use crate::context::AppContext;
@@ -31,6 +32,8 @@ struct Cli {
 enum Commands {
     /// Generate a ticket from local changes and create a matching branch.
     Ticket(TicketArgs),
+    /// Manage CLI configuration.
+    Config(ConfigArgs),
 }
 
 #[derive(Args)]
@@ -51,6 +54,16 @@ async fn main() {
 async fn run() -> AppResult<()> {
     let cli = Cli::parse();
 
+    match cli.command {
+        Commands::Config(args) => {
+            config_cmd::run(args.command)?;
+            Ok(())
+        }
+        Commands::Ticket(args) => run_ticket(args).await,
+    }
+}
+
+async fn run_ticket(args: TicketArgs) -> AppResult<()> {
     let cwd = std::env::current_dir()?;
     let config = AppConfig::load(&cwd)?;
 
@@ -100,19 +113,15 @@ async fn run() -> AppResult<()> {
 
     let context = AppContext::new(config, git, issue_tracker, language_model);
 
-    match cli.command {
-        Commands::Ticket(args) => {
-            let outcome = ticket::run(&context, TicketCommandArgs { board: args.board }).await?;
+    let outcome = ticket::run(&context, TicketCommandArgs { board: args.board }).await?;
 
-            println!(
-                "Ticket {} created. Branch ready: {}",
-                outcome.ticket.key,
-                outcome.branch.as_str()
-            );
-            if let Some(url) = &outcome.ticket.url {
-                println!("View ticket: {url}");
-            }
-        }
+    println!(
+        "Ticket {} created. Branch ready: {}",
+        outcome.ticket.key,
+        outcome.branch.as_str()
+    );
+    if let Some(url) = &outcome.ticket.url {
+        println!("View ticket: {url}");
     }
 
     Ok(())
