@@ -2,6 +2,26 @@
 
 `ugh` is a productivity-focused command-line assistant that helps engineers move from local changes to fully prepared Jira work items in a single hop. It inspects your git workspace, asks an LLM for a concise summary, creates a Jira ticket, and checks out the correctly-named branch so you can start committing immediately.
 
+> **Quick install**
+>
+> ```bash
+> # macOS (Intel)
+> curl -L https://github.com/<org>/ugh/releases/download/vX.Y.Z/ugh-x86_64-apple-darwin.tar.gz \
+>   | tar -xz && sudo mv ugh-x86_64-apple-darwin /usr/local/bin/ugh
+>
+> # macOS (Apple Silicon)
+> curl -L https://github.com/<org>/ugh/releases/download/vX.Y.Z/ugh-aarch64-apple-darwin.tar.gz \
+>   | tar -xz && sudo mv ugh-aarch64-apple-darwin /usr/local/bin/ugh
+>
+> # Linux (x86_64)
+> curl -L https://github.com/<org>/ugh/releases/download/vX.Y.Z/ugh-x86_64-unknown-linux-gnu.tar.gz \
+>   | tar -xz && sudo mv ugh-x86_64-unknown-linux-gnu /usr/local/bin/ugh
+>
+> ugh config init
+> ```
+>
+> Replace `vX.Y.Z` with the desired release tag. If `/usr/local/bin` is locked down, move the binary into a directory on your `PATH` (e.g., `$HOME/.local/bin`) and make it executable: `chmod +x ugh-…`.
+
 ## Highlights
 - **Git-aware ticket workflow** – summarizes uncommitted changes, calls Gemini 2.5 for a title/description, and spins up branches in the `type/JIRA-123/slug` format.
 - **Pluggable services** – swap LLM providers and issue trackers via traits; only Gemini + Jira are implemented today.
