@@ -25,6 +25,11 @@ impl IssueTrackerService for JiraClient {
                 "language model returned an empty title".to_string(),
             ));
         }
+        if draft.branch_summary.trim().is_empty() {
+            return Err(AppError::LanguageModel(
+                "language model returned an empty branch summary".to_string(),
+            ));
+        }
 
         Ok(Ticket {
             key: format!("{}-{}", board, 1),

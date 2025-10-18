@@ -6,7 +6,7 @@ Source code lives in `src/`, with `src/main.rs` implementing the Clap-powered CL
 ## Build, Test, and Development Commands
 - `cargo check` quickly validates the code without producing binaries.
 - `cargo build --release` emits an optimized executable in `target/release/ugh`.
-- `cargo run -- --board demo --description "sample"` runs the CLI with example flags; keep the double dash to forward arguments.
+- `cargo run -- ticket --board DEMO` exercises the ticket workflow; add the `--board` flag to target a Jira board or rely on config defaults once wired.
 - `cargo fmt` formats sources using rustfmt; run before committing.
 - `cargo clippy --all-targets --all-features` surfaces common Rust antipatterns.
 
@@ -18,6 +18,9 @@ Use Rust’s built-in test framework. Prefer colocated unit tests under a `#[cfg
 
 ## Commit & Pull Request Guidelines
 The repository has no commit history yet, so adopt Conventional Commits (e.g., `feat: add board validation`) to keep logs searchable. Each pull request should explain the change, list manual or automated test runs, and link to any tracking issues. Include CLI usage examples or screenshots when altering user-facing behavior to simplify review.
+
+## Branch Naming Rules
+Branches created by the workflow must read `type/ticket-key/short-summary`. `type` is `feature`, `fix`, or `quality`; the Jira key is the middle segment; the summary is a dash-separated slug the LLM derives from local changes. Ensure any manual branch creation mirrors this format so future automation remains consistent.
 
 ## Agent Notes
 Avoid mutating files under `target/`. If you add dependencies, update `Cargo.toml` and run `cargo check` to refresh `Cargo.lock`. Document any non-obvious design decisions in PR descriptions so future agents can onboard quickly.

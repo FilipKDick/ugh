@@ -30,10 +30,14 @@ pub async fn create_ticket_from_changes(
         .create_ticket(&board, draft.clone())
         .await?;
 
-    let slug = slugify(&draft.title);
-    let branch_name = match &ctx.config.branch_strategy {
-        strategy => strategy.format_branch(&ticket.key, &slug),
-    };
+    let branch_summary = draft.branch_summary.trim();
+    if branch_summary.is_empty() {
+        return Err(AppError::LanguageModel(
+            "language model returned an empty branch summary".to_string(),
+        ));
+    }
+
+    let branch_name = BranchName::from_parts(&draft.branch_category, &ticket.key, branch_summary);
 
     ctx.version_control.checkout_branch(&branch_name).await?;
 
@@ -41,39 +45,4 @@ pub async fn create_ticket_from_changes(
         ticket,
         branch: branch_name,
     })
-}
-
-fn slugify(input: &str) -> String {
-    let clean = input
-        .chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() {
-                c.to_ascii_lowercase()
-            } else if c.is_whitespace() || c == '-' || c == '_' {
-                '-'
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>();
-
-    let trimmed = clean.trim_matches('-');
-    let mut result = String::with_capacity(trimmed.len());
-    let mut prev_dash = false;
-    for ch in trimmed.chars() {
-        if ch == '-' {
-            if !prev_dash {
-                result.push(ch);
-            }
-            prev_dash = true;
-        } else {
-            result.push(ch);
-            prev_dash = false;
-        }
-    }
-    if result.is_empty() {
-        "work-item".to_string()
-    } else {
-        result
-    }
 }

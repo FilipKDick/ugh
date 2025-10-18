@@ -2,7 +2,6 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use crate::error::AppResult;
-use crate::services::BranchingStrategy;
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
@@ -11,7 +10,6 @@ pub struct AppConfig {
     pub default_board: Option<String>,
     pub llm_provider: LlmProvider,
     pub workspace_root: PathBuf,
-    pub branch_strategy: BranchingStrategy,
 }
 
 #[derive(Debug, Clone)]
@@ -31,20 +29,6 @@ impl AppConfig {
             })
             .unwrap_or(LlmProvider::Gemini);
 
-        // TODO: this will be defined in the branch creation part
-        let branch_strategy = env::var("UGH_BRANCH_PREFIX")
-            .ok()
-            .map(|prefix| {
-                if prefix.trim().is_empty() {
-                    BranchingStrategy::Raw
-                } else {
-                    BranchingStrategy::TicketKeyPrefix { prefix }
-                }
-            })
-            .unwrap_or_else(|| BranchingStrategy::TicketKeyPrefix {
-                prefix: "feature".to_string(),
-            });
-
         Ok(Self {
             // TODO: Load from environment variables or config file.
             jira_base_url: None,
@@ -52,7 +36,6 @@ impl AppConfig {
             default_board: None,
             llm_provider,
             workspace_root: workspace_hint.to_path_buf(),
-            branch_strategy,
         })
     }
 }
