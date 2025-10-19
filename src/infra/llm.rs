@@ -176,7 +176,8 @@ fn build_user_prompt(
             "Return only JSON with keys: title, description, branch_category, branch_summary.\n",
             "branch_category must be feature, fix, or quality.\n",
             "branch_summary must be a short hyphenated slug (<=6 words).\n",
-            "Use concise Markdown in the description.\n",
+            "Use concise Markdown in the description. Do not list changed files in the description.\n",
+            "The description should be a backward engineered Jira ticket, not a changelog.\n",
             "Ignore pure test-only changes when other files are touched; mention tests as follow-up if needed.\n",
             "Heuristic hint -> category: {}, summary: {}.\n",
             "If information is missing, make conservative assumptions and mention follow-up items."
