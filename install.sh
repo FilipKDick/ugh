@@ -20,22 +20,6 @@ detect_target() {
   esac
 }
 
-fetch_download_url() {
-  local api_url="$1" target="$2"
-  python3 - "$target" <<'PY'
-import json, sys
-
-target = sys.argv[1]
-data = json.load(sys.stdin)
-assets = data.get("assets", [])
-for asset in assets:
-    if asset.get("name") == f"ugh-{target}.tar.gz":
-        print(asset.get("browser_download_url", ""))
-        sys.exit(0)
-print("")
-PY
-}
-
 main() {
   local target api_url release_json download_url tmp_dir archive_path binary_path
 
@@ -51,12 +35,46 @@ main() {
   fi
 
   echo "🔍 Fetching release metadata (${VERSION}) for ${target}…"
-  release_json="$(curl -fsSL "${api_url}")" || {
+  release_json="$(curl -fsSL -H "Accept: application/vnd.github+json" "${api_url}")" || {
     echo "Failed to fetch release information from ${api_url}" >&2
     exit 1
   }
 
-  download_url="$(printf "%s" "${release_json}" | fetch_download_url /dev/stdin "${target}")"
+  if [[ -z "${release_json}" ]]; then
+    echo "GitHub API returned an empty response; check repository name (${REPO}) and network connectivity." >&2
+    exit 1
+  fi
+
+  set +e
+  download_url="$(RELEASE_JSON="${release_json}" python3 - "$target" <<'PY'
+import json, os, sys
+
+target = sys.argv[1]
+raw = os.environ.get("RELEASE_JSON", "")
+
+try:
+    data = json.loads(raw)
+except json.JSONDecodeError as exc:
+    sys.stderr.write(f"Failed to decode release metadata: {exc}\n")
+    sys.exit(1)
+
+for asset in data.get("assets", []):
+    if asset.get("name") == f"ugh-{target}.tar.gz":
+        print(asset.get("browser_download_url", ""))
+        sys.exit(0)
+
+sys.exit(2)
+PY
+)"
+  status=$?
+  set -e
+
+  if [[ $status -ne 0 ]]; then
+    echo "Could not parse release metadata. Response from GitHub:" >&2
+    echo "${release_json}" >&2
+    exit 1
+  fi
+
   if [[ -z "${download_url}" ]]; then
     echo "Could not locate a release artifact matching target '${target}'." >&2
     exit 1
