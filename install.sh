@@ -82,7 +82,7 @@ PY
 
   tmp_dir="$(mktemp -d)"
   archive_path="${tmp_dir}/ugh.tar.gz"
-  trap 'rm -rf "${tmp_dir}"' EXIT
+  trap 'rm -rf "${tmp_dir}"; trap - EXIT' EXIT
 
   echo "⬇️  Downloading ${download_url}"
   curl -fsSL "${download_url}" -o "${archive_path}"
