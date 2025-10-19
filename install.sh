@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+TMP_DIR=""
+
 REPO="${UGH_INSTALL_REPO:-FilipKDick/ugh}"
 VERSION="${UGH_INSTALL_VERSION:-latest}"
 DEFAULT_DEST="/usr/local/bin"
@@ -20,8 +22,14 @@ detect_target() {
   esac
 }
 
+cleanup() {
+  if [[ -n "${TMP_DIR}" && -d "${TMP_DIR}" ]]; then
+    rm -rf "${TMP_DIR}"
+  fi
+}
+
 main() {
-  local target api_url release_json download_url tmp_dir archive_path binary_path
+  local target api_url release_json download_url archive_path binary_path
 
   command -v curl >/dev/null 2>&1 || { echo "curl is required to install ugh." >&2; exit 1; }
   command -v python3 >/dev/null 2>&1 || { echo "python3 is required to install ugh." >&2; exit 1; }
@@ -80,17 +88,17 @@ PY
     exit 1
   fi
 
-  tmp_dir="$(mktemp -d)"
-  archive_path="${tmp_dir}/ugh.tar.gz"
-  trap 'rm -rf "${tmp_dir}"; trap - EXIT' EXIT
+  TMP_DIR="$(mktemp -d)"
+  archive_path="${TMP_DIR}/ugh.tar.gz"
+  trap 'cleanup' EXIT
 
   echo "⬇️  Downloading ${download_url}"
   curl -fsSL "${download_url}" -o "${archive_path}"
 
   echo "📦 Extracting archive…"
-  tar -xzf "${archive_path}" -C "${tmp_dir}"
+  tar -xzf "${archive_path}" -C "${TMP_DIR}"
 
-  binary_path="$(find "${tmp_dir}" -maxdepth 1 -type f -name "ugh-*")"
+  binary_path="$(find "${TMP_DIR}" -maxdepth 1 -type f -name "ugh-*")"
   if [[ -z "${binary_path}" ]]; then
     echo "Failed to locate extracted binary in archive." >&2
     exit 1
@@ -109,6 +117,8 @@ PY
   fi
 
   ${install_cmd} "${binary_path}" "${DEST}/ugh"
+
+  TMP_DIR=""
 
   echo "✅ Installed ugh to ${DEST}/ugh"
 
